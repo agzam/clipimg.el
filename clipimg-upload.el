@@ -89,6 +89,15 @@ is the least an upload can commit you to."
   :type 'symbol
   :group 'clipimg)
 
+(defcustom clipimg-upload-format 'png
+  "Format an upload goes out in, or nil for the format the clip is in.
+A macOS clipboard hands over TIFF several times the size of the same
+image as PNG, and neither a host nor a wire has any business carrying
+that.  A format nothing on PATH can make is passed over rather than
+refused: the clip goes as it is."
+  :type '(choice (const :tag "The format of the clip" nil) symbol)
+  :group 'clipimg)
+
 (defcustom clipimg-upload-timeout 60
   "Seconds to wait for a host to answer an upload."
   :type 'natnum
@@ -198,14 +207,9 @@ is unibyte, because the bytes of an image are not text."
             (encode-coding-string data 'binary)
             (encode-coding-string tail 'utf-8))))
 
-(defun clipimg-upload--filename (clip)
-  "Return the file name CLIP travels under."
-  (concat (format-time-string "clipimg-%Y%m%d-%H%M%S" (clipimg-clip-time clip))
-          "." (symbol-name (or (clipimg-clip-type clip) 'png))))
-
-(defun clipimg-upload--type (clip)
-  "Return the media type announced for CLIP."
-  (format "image/%s" (or (clipimg-clip-type clip) 'png)))
+(defun clipimg-upload--type (format)
+  "Return the media type announced for an image of FORMAT."
+  (concat "image/" (symbol-name format)))
 
 
 ;;;; Talking to the host
@@ -264,6 +268,22 @@ PATH is a list of symbols naming one object key each."
 
 ;;;; Uploading
 
+(defun clipimg-upload--send-bytes (clip data format service)
+  "Post DATA, which is CLIP in FORMAT, to SERVICE and return the URL."
+  (let* ((secret (clipimg-upload--secret service))
+         (boundary (clipimg-upload--boundary))
+         (body (clipimg-upload--body boundary
+                                     (clipimg-upload--fields service secret)
+                                     (clipimg-upload--property service :file-field)
+                                     (clipimg-clip-filename clip format)
+                                     (clipimg-upload--type format)
+                                     data)))
+    (clipimg-upload--answer
+     service
+     (clipimg-upload--post (clipimg-upload--property service :url)
+                           (clipimg-upload--headers service boundary secret)
+                           body))))
+
 (defun clipimg-upload-send (clip &optional service)
   "Upload CLIP to SERVICE and return the URL it answers with.
 SERVICE defaults to `clipimg-upload-service'.  Nothing is asked here,
@@ -271,34 +291,30 @@ so a command that calls this should have asked already."
   (let ((service (or service clipimg-upload-service)))
     (when-let* ((problem (clipimg-upload-problem service)))
       (user-error "%s" problem))
-    (let* ((secret (clipimg-upload--secret service))
-           (boundary (clipimg-upload--boundary))
-           (body (clipimg-upload--body boundary
-                                       (clipimg-upload--fields service secret)
-                                       (clipimg-upload--property service :file-field)
-                                       (clipimg-upload--filename clip)
-                                       (clipimg-upload--type clip)
-                                       (clipimg-clip-data clip))))
-      (clipimg-upload--answer
-       service
-       (clipimg-upload--post (clipimg-upload--property service :url)
-                             (clipimg-upload--headers service boundary secret)
-                             body)))))
+    (let ((format (clipimg-clip-format clip clipimg-upload-format)))
+      (clipimg-upload--send-bytes clip (clipimg-clip-bytes clip format)
+                                  format service))))
 
-(defun clipimg-upload--confirm (clip service)
-  "Ask whether CLIP may go to SERVICE, naming the size and the retention."
+(defun clipimg-upload--confirm (data service)
+  "Ask whether DATA may go to SERVICE, naming the size and the retention."
   (y-or-n-p (format "Upload %s to %s (%s)? "
-                    (file-size-human-readable (length (clipimg-clip-data clip)))
+                    (file-size-human-readable (length data))
                     (clipimg-upload-label service)
                     (clipimg-upload-retention service))))
 
 (defun clipimg-upload-url (clip &optional service)
-  "Ask, then upload CLIP to SERVICE, and return the URL it answers with."
+  "Ask, then upload CLIP to SERVICE, and return the URL it answers with.
+The size named in the question is the size that goes out, so the clip is
+put in the format of the upload before anyone is asked about it."
   (let ((service (or service clipimg-upload-service)))
-    (unless (clipimg-upload--confirm clip service)
-      (user-error "Nothing uploaded"))
-    (message "clipimg: uploading to %s..." (clipimg-upload-label service))
-    (clipimg-upload-send clip service)))
+    (when-let* ((problem (clipimg-upload-problem service)))
+      (user-error "%s" problem))
+    (let* ((format (clipimg-clip-format clip clipimg-upload-format))
+           (data (clipimg-clip-bytes clip format)))
+      (unless (clipimg-upload--confirm data service)
+        (user-error "Nothing uploaded"))
+      (message "clipimg: uploading to %s..." (clipimg-upload-label service))
+      (clipimg-upload--send-bytes clip data format service))))
 
 (defun clipimg-upload-to-kill-ring (clip &optional service)
   "Upload CLIP to SERVICE and put the URL on the kill ring.

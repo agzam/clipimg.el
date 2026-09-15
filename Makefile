@@ -2,9 +2,11 @@ EMACS ?= emacs
 ELPA_DIR = $(CURDIR)/.elpa
 SANDBOX_DIR = $(CURDIR)/.sandbox
 AUTOLOADS = $(CURDIR)/clipimg-autoloads.el
-PACKAGE_FILES = clipimg.el clipimg-ocr.el clipimg-upload.el clipimg-menu.el
+PACKAGE_FILES = clipimg.el clipimg-ocr.el clipimg-upload.el clipimg-save.el \
+	clipimg-menu.el
 TEST_FILES = test/clipimg-tests.el test/clipimg-ocr-tests.el \
-	test/clipimg-upload-tests.el test/clipimg-menu-tests.el
+	test/clipimg-upload-tests.el test/clipimg-save-tests.el \
+	test/clipimg-menu-tests.el
 
 # Every Emacs invocation runs against a repo-local user-emacs-directory, so
 # nothing touches the developer's real ~/.emacs.d (eln cache, auto-save list,

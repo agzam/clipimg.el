@@ -14,6 +14,15 @@
   (it "is a transient"
     (expect (get 'clipimg 'transient--prefix) :not :to-be nil))
 
+  (it "gives every column of verbs a key"
+    (expect (mapcar (lambda (key)
+                      (plist-get (cdr (transient-get-suffix 'clipimg key))
+                                 :command))
+                    '("RET" "u" "s"))
+            :to-equal '(clipimg-menu-ocr-buffer
+                        clipimg-menu-upload
+                        clipimg-menu-save)))
+
   (it "opens on nothing when the clipboard holds no image"
     (spy-on 'clipimg-clipboard-clip :and-return-value nil)
     (expect (clipimg) :to-throw 'user-error)))
@@ -136,5 +145,17 @@
         (spy-on 'clipimg-upload-url :and-return-value "https://files.catbox.moe/a.png")
         (clipimg-menu-upload-insert)
         (expect (buffer-string) :to-equal "https://files.catbox.moe/a.png")))))
+
+(describe "the save action"
+  (before-each
+    (setq clipimg-menu--clip (clipimg-clip-create :data "x" :type 'png)))
+
+  (after-each
+    (setq clipimg-menu--clip nil))
+
+  (it "hands the clip of the menu to the prompt"
+    (spy-on 'clipimg-save-file)
+    (clipimg-menu-save)
+    (expect 'clipimg-save-file :to-have-been-called-with clipimg-menu--clip)))
 
 ;;; clipimg-menu-tests.el ends here

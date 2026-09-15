@@ -142,15 +142,73 @@ JSON answer have nowhere else to be exercised.")
     (expect (clipimg-upload--boundary) :not :to-equal (clipimg-upload--boundary))))
 
 (describe "naming the file"
-  (it "stamps the name with the time the clip was taken"
-    (expect (clipimg-upload--filename (clipimg-upload-tests--clip))
-            :to-equal "clipimg-20260915-103000.png"))
+  (it "announces the media type of the format going out"
+    (expect (clipimg-upload--type 'png) :to-equal "image/png")
+    (expect (clipimg-upload--type 'jpeg) :to-equal "image/jpeg")))
 
-  (it "announces the media type of the clip"
-    (expect (clipimg-upload--type (clipimg-upload-tests--clip))
-            :to-equal "image/png")
-    (expect (clipimg-upload--type (clipimg-clip-create :data "x" :type 'jpeg))
-            :to-equal "image/jpeg")))
+(describe "the format an upload goes out in"
+  (before-each
+    (spy-on 'clipimg-upload--post
+            :and-return-value "https://litter.catbox.moe/a.png\n"))
+
+  (defun clipimg-upload-tests--tiff ()
+    "Return a clip of a kind a macOS clipboard hands over."
+    (clipimg-clip-create :data "TIFFBYTES" :type 'tiff
+                         :time (encode-time 0 30 10 15 9 2026)))
+
+  (defun clipimg-upload-tests--body ()
+    "Return the body of the upload the spy was handed."
+    (nth 2 (spy-calls-args-for 'clipimg-upload--post 0)))
+
+  (it "converts the clip to the format of the setting"
+    (spy-on 'clipimg-converter :and-return-value '("magick"))
+    (spy-on 'clipimg-convert :and-return-value "PNGBYTES")
+    (let ((clipimg-upload-format 'png))
+      (clipimg-upload-send (clipimg-upload-tests--tiff) 'litterbox))
+    (expect 'clipimg-convert :to-have-been-called-with "TIFFBYTES" 'tiff 'png)
+    (let ((body (clipimg-upload-tests--body)))
+      (expect (string-search "PNGBYTES" body) :not :to-be nil)
+      (expect (string-search "filename=\"clipimg-20260915-103000.png\"" body)
+              :not :to-be nil)
+      (expect (string-search "Content-Type: image/png" body) :not :to-be nil)))
+
+  (it "sends what it has when nothing on PATH can convert"
+    (spy-on 'clipimg-converter :and-return-value nil)
+    (spy-on 'clipimg-convert)
+    (let ((clipimg-upload-format 'png))
+      (clipimg-upload-send (clipimg-upload-tests--tiff) 'litterbox))
+    (expect 'clipimg-convert :not :to-have-been-called)
+    (let ((body (clipimg-upload-tests--body)))
+      (expect (string-search "TIFFBYTES" body) :not :to-be nil)
+      (expect (string-search "filename=\"clipimg-20260915-103000.tiff\"" body)
+              :not :to-be nil)
+      (expect (string-search "Content-Type: image/tiff" body) :not :to-be nil)))
+
+  (it "leaves the clip alone when the setting names no format"
+    (spy-on 'clipimg-converter :and-return-value '("magick"))
+    (spy-on 'clipimg-convert)
+    (let ((clipimg-upload-format nil))
+      (clipimg-upload-send (clipimg-upload-tests--tiff) 'litterbox))
+    (expect 'clipimg-convert :not :to-have-been-called)
+    (expect (string-search "TIFFBYTES" (clipimg-upload-tests--body))
+            :not :to-be nil))
+
+  (it "names the size that goes out, not the size that came in"
+    (spy-on 'clipimg-converter :and-return-value '("magick"))
+    (spy-on 'clipimg-convert :and-return-value "PNG")
+    (spy-on 'y-or-n-p :and-return-value nil)
+    (let ((clipimg-upload-format 'png))
+      (ignore-errors (clipimg-upload-url (clipimg-upload-tests--tiff) 'litterbox)))
+    (expect (spy-calls-args-for 'y-or-n-p 0)
+            :to-equal '("Upload 3 to Litterbox (72 hours)? ")))
+
+  (it "converts once for the question and the upload together"
+    (spy-on 'clipimg-converter :and-return-value '("magick"))
+    (spy-on 'clipimg-convert :and-return-value "PNG")
+    (spy-on 'y-or-n-p :and-return-value t)
+    (let ((clipimg-upload-format 'png))
+      (clipimg-upload-url (clipimg-upload-tests--tiff) 'litterbox))
+    (expect (spy-calls-count 'clipimg-convert) :to-equal 1)))
 
 (describe "the secret a service needs"
   (it "finds it in auth-source under the host of the entry"

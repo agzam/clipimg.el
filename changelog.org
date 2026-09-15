@@ -1,5 +1,14 @@
 #+title: Changelog
 
+* 0.3.0 (2026-09-15)
+- A Save column: =s= asks for a file name and writes the image there. The prompt starts in =clipimg-save-directory= and offers a name stamped with the time the clip was taken.
+- The extension you type decides the format. The one the clip is already in is written as it stands; any other is converted with =magick=, =gm= or =convert=, and png, jpg, tiff, webp and gif were all written and read back.
+- Saves and uploads are PNG by default, whatever the clipboard holds, through =clipimg-save-default-format= and =clipimg-upload-format=. A Qt program on macOS publishes every capture as TIFF, several times the size. Set either to nil to keep the format of the clip.
+- Without a converter on PATH the save prompt offers the clip's own format rather than one it cannot write, and typing an extension it cannot produce says so in the minibuffer as you type.
+- The size an upload asks you to confirm is the size that goes over the wire, converted format included.
+- A converted file is written only after Emacs recognizes the converter's answer as the format that was asked for. Emacs' own =image-convert= is deliberately not used: it prefers ffmpeg, which cannot make a jpeg, and its ImageMagick path folds the converter's warnings into the image data.
+- =clipimg-save= does the same without the menu.
+
 * 0.2.0 (2026-09-15)
 - An Upload column: =u= sends the image to an image host and puts the URL on the kill ring, =U= inserts it at point, =-s= picks the host.
 - Three hosts ship in =clipimg-upload-services=: Litterbox, Catbox and Uguu. A host is a table entry, not code. Litterbox is the default: no account, and the image is gone in three days.

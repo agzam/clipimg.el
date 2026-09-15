@@ -24,6 +24,7 @@
 (require 'transient)
 (require 'clipimg)
 (require 'clipimg-ocr)
+(require 'clipimg-save)
 (require 'clipimg-upload)
 
 (defvar clipimg-menu--clip nil
@@ -201,6 +202,11 @@
   (with-current-buffer (clipimg-menu--origin-buffer)
     (clipimg-upload-insert clipimg-menu--clip (clipimg-menu--service))))
 
+(defun clipimg-menu-save ()
+  "Put the clipboard image in a file, asking for the name first."
+  (interactive)
+  (clipimg-save-file clipimg-menu--clip))
+
 (defun clipimg-menu-read-clipboard ()
   "Read the clipboard again, replacing the image the menu acts on."
   (interactive)
@@ -234,7 +240,9 @@ that snapshot even after the clipboard moves on."
     (clipimg-menu--service-infix)
     ("u" "to kill ring" clipimg-menu-upload)
     ("U" "insert URL at point" clipimg-menu-upload-insert
-     :inapt-if clipimg-menu--origin-read-only-p)]]
+     :inapt-if clipimg-menu--origin-read-only-p)]
+   ["Save"
+    ("s" "to file" clipimg-menu-save)]]
   [:class transient-row
    ("r" "re-read clipboard" clipimg-menu-read-clipboard :transient t)]
   ;; The Return key arrives as this event while an active map binds it,

@@ -194,6 +194,70 @@ frame cannot measure an image at all."
             (clipimg--write-temp (clipimg-clip-data clip)
                                  (clipimg-clip-type clip)))))
 
+(defun clipimg-clip-filename (clip &optional format)
+  "Return a file name for CLIP, stamped with the time it was taken.
+FORMAT names the extension; without one, the format CLIP is in.  Every
+command that gives the image a name of its own uses this one, so a file
+saved and a file uploaded a moment apart are named alike."
+  (concat (format-time-string "clipimg-%Y%m%d-%H%M%S" (clipimg-clip-time clip))
+          "." (symbol-name (or format (clipimg-clip-type clip) 'png))))
+
+
+;;;; Converting
+
+(defconst clipimg--converters
+  '(("magick") ("gm" "convert") ("convert"))
+  "Command lines able to turn one image format into another, best first.
+Each takes two further arguments: the format going in and the format
+coming out, both as FORMAT:- for standard input and standard output.")
+
+(defun clipimg-converter ()
+  "Return the command line of the first converter on PATH, or nil."
+  (seq-find (lambda (command) (executable-find (car command)))
+            clipimg--converters))
+
+(defun clipimg-convert (data from format)
+  "Return image DATA of format FROM as FORMAT.
+Emacs has `image-convert' for this, and it cannot be trusted with a file
+a user keeps: it asks ffmpeg first, which knows no format named jpeg, and
+its ImageMagick path lets the converter's standard error into the image
+data, where ImageMagick 7 puts its warning about the name `convert'."
+  (let ((command (or (clipimg-converter)
+                     (user-error "%s needs ImageMagick or GraphicsMagick"
+                                 (upcase (symbol-name format))))))
+    (with-temp-buffer
+      (set-buffer-multibyte nil)
+      (insert data)
+      (let ((coding-system-for-read 'binary)
+            (coding-system-for-write 'binary))
+        (unless (zerop (apply #'call-process-region (point-min) (point-max)
+                              (car command) t '(t nil) nil
+                              (append (cdr command)
+                                      (list (format "%s:-" from)
+                                            (format "%s:-" format)))))
+          (user-error "%s made no %s of the image" (car command) format)))
+      (let ((converted (buffer-string)))
+        (unless (eq (image-type-from-data converted) format)
+          (user-error "%s answered with something that is not a %s image"
+                      (car command) format))
+        converted))))
+
+(defun clipimg-clip-format (clip &optional format)
+  "Return FORMAT when CLIP can be had in it, or the format CLIP is in.
+A format nothing on PATH can make is no use to a caller, so the clip's
+own stands in for it."
+  (let ((type (or (clipimg-clip-type clip) 'png)))
+    (if (and format (or (eq format type) (clipimg-converter)))
+        format
+      type)))
+
+(defun clipimg-clip-bytes (clip &optional format)
+  "Return the bytes of CLIP in FORMAT, converting only when it must."
+  (let ((type (or (clipimg-clip-type clip) 'png)))
+    (if (or (null format) (eq format type))
+        (clipimg-clip-data clip)
+      (clipimg-convert (clipimg-clip-data clip) type format))))
+
 
 ;;;; Describing a clip
 

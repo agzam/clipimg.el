@@ -113,6 +113,91 @@
       (expect (file-exists-p file) :to-be nil)
       (expect clipimg--temp-files :to-be nil))))
 
+(describe "clipimg-clip-filename"
+  (it "stamps the name with the time the clip was taken"
+    (expect (clipimg-clip-filename
+             (clipimg-clip-create :data "x" :type 'png
+                                  :time (encode-time 0 30 10 15 9 2026)))
+            :to-equal "clipimg-20260915-103000.png"))
+
+  (it "takes the extension of the format it is handed"
+    (expect (clipimg-clip-filename
+             (clipimg-clip-create :data "x" :type 'tiff
+                                  :time (encode-time 0 30 10 15 9 2026))
+             'png)
+            :to-equal "clipimg-20260915-103000.png"))
+
+  (it "names a clip of unknown type after the format it would be written in"
+    (expect (file-name-extension
+             (clipimg-clip-filename (clipimg-clip-create :data "x")))
+            :to-equal "png")))
+
+(describe "clipimg-convert"
+  (it "turns the fixture into another format, and Emacs calls it one"
+    (assume (clipimg-converter) "needs ImageMagick or GraphicsMagick")
+    (let ((jpeg (clipimg-convert (clipimg-tests-bytes) 'png 'jpeg)))
+      (expect (image-type-from-data jpeg) :to-be 'jpeg)
+      (expect jpeg :not :to-equal (clipimg-tests-bytes))))
+
+  (it "refuses an answer with anything in front of the image"
+    ;; ImageMagick 7 warns about the name `convert' on standard error, and
+    ;; a converter reading that stream back into the image data hands over
+    ;; bytes no viewer opens.  Emacs' own `image-convert' does.
+    (spy-on 'clipimg-converter :and-return-value '("magick"))
+    (spy-on 'call-process-region
+            :and-call-fake
+            (lambda (start end &rest _)
+              (delete-region start end)
+              (insert "WARNING: the convert command is deprecated\n")
+              (insert-file-contents-literally clipimg-tests-fixture)
+              0))
+    (expect (clipimg-convert (clipimg-tests-bytes) 'png 'jpeg)
+            :to-throw 'user-error))
+
+  (it "refuses when the converter fails"
+    (spy-on 'clipimg-converter :and-return-value '("magick"))
+    (spy-on 'call-process-region :and-return-value 1)
+    (expect (clipimg-convert (clipimg-tests-bytes) 'png 'jpeg)
+            :to-throw 'user-error))
+
+  (it "says what it needs when nothing on PATH can convert"
+    (spy-on 'clipimg-converter :and-return-value nil)
+    (expect (clipimg-convert "x" 'png 'jpeg) :to-throw 'user-error)))
+
+(describe "clipimg-clip-format"
+  (it "keeps the format asked for when the clip is already in it"
+    (spy-on 'clipimg-converter :and-return-value nil)
+    (expect (clipimg-clip-format (clipimg-clip-create :data "x" :type 'png) 'png)
+            :to-be 'png))
+
+  (it "keeps the format asked for when something can convert to it"
+    (spy-on 'clipimg-converter :and-return-value '("magick"))
+    (expect (clipimg-clip-format (clipimg-clip-create :data "x" :type 'tiff) 'png)
+            :to-be 'png))
+
+  (it "falls back to the clip when nothing can convert"
+    (spy-on 'clipimg-converter :and-return-value nil)
+    (expect (clipimg-clip-format (clipimg-clip-create :data "x" :type 'tiff) 'png)
+            :to-be 'tiff))
+
+  (it "falls back to the clip when no format is asked for"
+    (expect (clipimg-clip-format (clipimg-clip-create :data "x" :type 'tiff))
+            :to-be 'tiff)))
+
+(describe "clipimg-clip-bytes"
+  (it "hands the bytes over untouched for the format the clip is in"
+    (spy-on 'clipimg-convert)
+    (let ((clip (clipimg-clip-create :data "bytes" :type 'png)))
+      (expect (clipimg-clip-bytes clip 'png) :to-equal "bytes")
+      (expect (clipimg-clip-bytes clip) :to-equal "bytes")
+      (expect 'clipimg-convert :not :to-have-been-called)))
+
+  (it "converts to a format the clip is not in"
+    (spy-on 'clipimg-convert :and-return-value "converted")
+    (expect (clipimg-clip-bytes (clipimg-clip-create :data "bytes" :type 'tiff) 'png)
+            :to-equal "converted")
+    (expect 'clipimg-convert :to-have-been-called-with "bytes" 'tiff 'png)))
+
 (describe "clipimg-clip-preview"
   (it "carries the summary as text so a terminal frame shows something"
     (let ((preview (clipimg-clip-preview

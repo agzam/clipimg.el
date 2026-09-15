@@ -2,7 +2,7 @@
 
 Take the image off the clipboard and do something with it, from a transient menu.
 
-Today the menu recognizes text and uploads. Save and attach columns come next.
+Today the menu recognizes text, uploads and saves. An attach column comes next.
 
 * Requirements
 
@@ -34,6 +34,7 @@ Today the menu recognizes text and uploads. Save and attach columns come next.
 | =-s=  | host to upload to                                    |
 | =u=   | upload, then put the URL on the kill ring            |
 | =U=   | upload, then insert the URL at point                 |
+| =s=   | save to a file                                       |
 | =r=   | read the clipboard again                             |
 
 =w= leaves the system clipboard alone, so the image survives and you can read it again with another layout.
@@ -51,6 +52,8 @@ The text buffer shows the image above the text on a graphical frame, and the sum
 =u= sends the image to an image host and hands back the URL. Every upload asks first, naming the host, the size and how long the image stays there, because most of these hosts cannot take one back.
 
 Unlike =w=, =u= puts the URL on the system clipboard as well, replacing the image there. Pasting the link somewhere else is the next thing you were going to do anyway, and the menu is unharmed either way: it works on the snapshot it took when it opened.
+
+An upload goes out as PNG, converted first when the clipboard handed over something else - =clipimg-upload-format= decides, and nil sends the clip as it is. The size in the question is the size that goes over the wire, so a TIFF from a macOS clipboard is announced at its PNG size, not its own. Without a converter on PATH the clip goes as it is.
 
 | service     | how long it stays         | what it needs              |
 |-------------+---------------------------+----------------------------|
@@ -94,20 +97,37 @@ A service is an entry in =clipimg-upload-services=: where the POST goes, what th
                :retention "a week"))
 #+end_src
 
+* Save
+
+=s= asks for a file name and writes the image there. The prompt starts in =clipimg-save-directory= and offers a name stamped with the time the clip was taken, =clipimg-20260915-103000.png=. Edit as much of it as you like; the extension you leave decides the format.
+
+That name ends in =.png= whatever the clipboard holds, because =clipimg-save-default-format= says =png=. A clipboard is not always asked: Qt programs on macOS publish every capture as TIFF, several times the size of the same image as PNG. Set the variable to nil to be offered the format the clip is actually in.
+
+An extension naming the format the clip is already in costs nothing - the bytes go to disk as they are. Any other extension is a conversion, and that needs =magick=, =gm= or =convert= on PATH. Formats verified here: =png=, =jpg=, =tiff=, =webp= and =gif=. A converted file is never written until Emacs has read the converter's answer back and recognized it as the format you asked for.
+
+Without one of those programs the prompt offers the format of the clip instead, so the suggested name is always one that can be written. Type an extension it cannot produce and the minibuffer says so while you type, rather than after you answer.
+
+Emacs has =image-convert= for this and clipimg does not use it. It reaches for ffmpeg before ImageMagick, and ffmpeg names its encoders its own way, so a jpeg fails outright. Its ImageMagick path reads standard error back into the image data, and ImageMagick 7 writes a deprecation warning there whenever it is called as =convert= - which puts 107 bytes of English in front of your image and leaves a file no viewer opens.
+
+=M-x clipimg-save= skips the menu and asks straight away.
+
 * Configuration
 
-| variable                    | what it decides                                |
-|-----------------------------+------------------------------------------------|
-| =clipimg-ocr-backend=       | engine, or =auto= for the first available one  |
-| =clipimg-ocr-language=      | language the engine reads, nil for its default |
-| =clipimg-ocr-layout=        | starting layout                                |
-| =clipimg-ocr-backends=      | the engines themselves                         |
-| =clipimg-upload-service=    | host an upload goes to                         |
-| =clipimg-upload-services=   | the hosts themselves                           |
-| =clipimg-upload-timeout=    | seconds to wait for a host to answer           |
-| =clipimg-clipboard-types=   | clipboard media types, most wanted first       |
-| =clipimg-preview-max-width= | width the preview image is shrunk to           |
-| =clipimg-ocr-buffer-name=   | name of the text buffer                        |
+| variable                      | what it decides                                 |
+|-------------------------------+-------------------------------------------------|
+| =clipimg-ocr-backend=         | engine, or =auto= for the first available one   |
+| =clipimg-ocr-language=        | language the engine reads, nil for its default  |
+| =clipimg-ocr-layout=          | starting layout                                 |
+| =clipimg-ocr-backends=        | the engines themselves                          |
+| =clipimg-upload-service=      | host an upload goes to                          |
+| =clipimg-upload-services=     | the hosts themselves                            |
+| =clipimg-upload-timeout=      | seconds to wait for a host to answer            |
+| =clipimg-upload-format=       | format an upload goes out in, nil for the clip  |
+| =clipimg-save-directory=      | directory the save prompt starts in             |
+| =clipimg-save-default-format= | format the save prompt offers, nil for the clip |
+| =clipimg-clipboard-types=     | clipboard media types, most wanted first        |
+| =clipimg-preview-max-width=   | width the preview image is shrunk to            |
+| =clipimg-ocr-buffer-name=     | name of the text buffer                         |
 
 ** Another engine
 
@@ -123,12 +143,6 @@ An engine is an entry in =clipimg-ocr-backends=: a label, a predicate saying whe
                             (shell-command-to-string
                              (format "my-ocr %s" (shell-quote-argument file))))))
 #+end_src
-
-Entries earlier in the list win when =clipimg-ocr-backend= is =auto=.
-
-* License
-
-GPL-3.0-or-later. See [[file:LICENSE][LICENSE]].
 
 Entries earlier in the list win when =clipimg-ocr-backend= is =auto=.
 
