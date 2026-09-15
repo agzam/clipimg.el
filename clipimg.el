@@ -31,6 +31,9 @@
 ;; if-let* and when-let* live here until Emacs 30 moves them into subr.
 (require 'subr-x)
 
+;; An Emacs built without window-system support carries no `image-size'.
+(declare-function image-size "image.c" (spec &optional pixels frame))
+
 (defgroup clipimg nil
   "Act on the image in the system clipboard."
   :group 'multimedia
