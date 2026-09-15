@@ -2,7 +2,7 @@
 
 Take the image off the clipboard and do something with it, from a transient menu.
 
-Today the menu recognizes text. Upload, save and attach columns come next.
+Today the menu recognizes text and uploads. Save and attach columns come next.
 
 * Requirements
 
@@ -23,15 +23,18 @@ Today the menu recognizes text. Upload, save and attach columns come next.
 
 =M-x clipimg= reads the image on the clipboard and opens the menu on it. The image is read once, so nothing breaks when the clipboard moves on; =r= takes a fresh snapshot.
 
-| key   | what it does                                  |
-|-------+-----------------------------------------------|
-| =-b=  | engine to recognize with                      |
-| =-l=  | language the engine should read               |
-| =-y=  | layout: =block=, =sparse= or =auto=           |
-| =RET= | show the text in a buffer                     |
-| =w=   | put the text on the kill ring                 |
+| key   | what it does                                         |
+|-------+------------------------------------------------------|
+| =-b=  | engine to recognize with                             |
+| =-l=  | language the engine should read                      |
+| =-y=  | layout: =block=, =sparse= or =auto=                  |
+| =RET= | show the text in a buffer                            |
+| =w=   | put the text on the kill ring                        |
 | =i=   | insert the text at point in the buffer you came from |
-| =r=   | read the clipboard again                      |
+| =-s=  | host to upload to                                    |
+| =u=   | upload, then put the URL on the kill ring            |
+| =U=   | upload, then insert the URL at point                 |
+| =r=   | read the clipboard again                             |
 
 =w= leaves the system clipboard alone, so the image survives and you can read it again with another layout.
 
@@ -43,6 +46,54 @@ The text buffer shows the image above the text on a graphical frame, and the sum
 
 =block= joins boxes that sit side by side into one line, which is what you want for a paragraph or a table row. =sparse= gives every box a line of its own, which suits scattered labels. =auto= leaves it to the engine.
 
+* Upload
+
+=u= sends the image to an image host and hands back the URL. Every upload asks first, naming the host, the size and how long the image stays there, because most of these hosts cannot take one back.
+
+Unlike =w=, =u= puts the URL on the system clipboard as well, replacing the image there. Pasting the link somewhere else is the next thing you were going to do anyway, and the menu is unharmed either way: it works on the snapshot it took when it opened.
+
+| service     | how long it stays          | what it needs              |
+|-------------+----------------------------+----------------------------|
+| =litterbox= | 72 hours                   | nothing                    |
+| =catbox=    | kept, your address logged  | nothing, userhash optional |
+| =0x0=       | 30 days to a year, by size | nothing                    |
+| =uguu=      | 3 hours                    | nothing                    |
+| =tmpfiles=  | 1 hour                     | nothing                    |
+| =imgbb=     | until you delete it        | an API key                 |
+
+Litterbox is the default because it needs no account and throws the image away after three days, which is the least an upload can commit you to. Five of the six need nothing configured at all.
+
+There is no Imgur entry. Imgur stopped issuing API credentials, so nobody can obtain a key for it any more, and the endpoint only answers to applications registered before they closed the door. If you hold one of those keys, add the entry yourself as shown under [[*Another service][Another service]], posting to =https://api.imgur.com/3/image= with the file in an =image= field, =:credential (:host "api.imgur.com" :header "Authorization" :format "Client-ID %s")= and =:answer (data link)=.
+
+** Credentials
+
+A service that needs a credential reads it from auth-source, and only when you upload, so opening the menu never asks for your passphrase. Lines in =~/.authinfo.gpg=:
+
+#+begin_example
+machine api.imgbb.com password YOUR-API-KEY
+machine catbox.moe password YOUR-USERHASH
+#+end_example
+
+An ImgBB key is free from [[https://api.imgbb.com/][their API page]]. A Catbox userhash is optional and only ties an upload to your account so you can delete it later; Catbox keeps the image either way.
+
+An entry can also ship a key of its own in =:default=, which is what a package does when it registers once on behalf of everyone. A line in your authinfo always wins over it, so your own account never rides on a shared key.
+
+** Another service
+
+A service is an entry in =clipimg-upload-services=: where the POST goes, what the file field is called, and how to find the URL in the reply. =:answer= is =text= for a host that replies with a bare URL, a list of symbols for a path into JSON, or a function of the reply body.
+
+#+begin_src elisp
+(add-to-list 'clipimg-upload-services
+             '(my-host
+               :label "my host"
+               :url "https://example.com/api/upload"
+               :file-field "file"
+               :fields (("kind" . "image"))
+               :credential (:host "example.com" :header "Authorization" :format "Bearer %s")
+               :answer (result url)
+               :retention "a week"))
+#+end_src
+
 * Configuration
 
 | variable                    | what it decides                                |
@@ -51,6 +102,9 @@ The text buffer shows the image above the text on a graphical frame, and the sum
 | =clipimg-ocr-language=      | language the engine reads, nil for its default |
 | =clipimg-ocr-layout=        | starting layout                                |
 | =clipimg-ocr-backends=      | the engines themselves                         |
+| =clipimg-upload-service=    | host an upload goes to                         |
+| =clipimg-upload-services=   | the hosts themselves                           |
+| =clipimg-upload-timeout=    | seconds to wait for a host to answer           |
 | =clipimg-clipboard-types=   | clipboard media types, most wanted first       |
 | =clipimg-preview-max-width= | width the preview image is shrunk to           |
 | =clipimg-ocr-buffer-name=   | name of the text buffer                        |
@@ -69,6 +123,12 @@ An engine is an entry in =clipimg-ocr-backends=: a label, a predicate saying whe
                             (shell-command-to-string
                              (format "my-ocr %s" (shell-quote-argument file))))))
 #+end_src
+
+Entries earlier in the list win when =clipimg-ocr-backend= is =auto=.
+
+* License
+
+GPL-3.0-or-later. See [[file:LICENSE][LICENSE]].
 
 Entries earlier in the list win when =clipimg-ocr-backend= is =auto=.
 

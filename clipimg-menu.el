@@ -24,6 +24,7 @@
 (require 'transient)
 (require 'clipimg)
 (require 'clipimg-ocr)
+(require 'clipimg-upload)
 
 (defvar clipimg-menu--clip nil
   "The clip the open menu acts on.")
@@ -54,6 +55,12 @@
       (intern value)
     clipimg-ocr-layout))
 
+(defun clipimg-menu--service ()
+  "Return the upload service the menu names, or the one in effect."
+  (if-let* ((value (transient-arg-value "--service=" (clipimg-menu--args))))
+      (intern value)
+    clipimg-upload-service))
+
 (defun clipimg-menu--origin-buffer ()
   "Return the buffer the menu was opened from, or the current one."
   (if (buffer-live-p transient--original-buffer)
@@ -79,8 +86,9 @@
             (propertize "empty" 'face 'transient-inactive-value))))
 
 (defun clipimg-menu--problems ()
-  "Return what stands in the way of recognizing text, one string each."
-  (delq nil (list (clipimg-ocr-problem (clipimg-menu--backend)))))
+  "Return what stands in the way of a command, one string each."
+  (delq nil (list (clipimg-ocr-problem (clipimg-menu--backend))
+                  (clipimg-upload-problem (clipimg-menu--service)))))
 
 (defun clipimg-menu--header (_children)
   "Return the header: what is on the clipboard, then anything in the way."
@@ -126,6 +134,19 @@
                   "language" (oref object value)
                   (or clipimg-ocr-language "engine default"))))
 
+(transient-define-infix clipimg-menu--service-infix ()
+  :class 'transient-option
+  :key "-s"
+  :argument "--service="
+  :prompt "Upload to: "
+  :always-read t
+  :choices (lambda () (mapcar #'symbol-name (clipimg-upload-service-names)))
+  :format " %k %d"
+  :description (lambda (object)
+                 (clipimg-menu--label
+                  "service" (oref object value)
+                  (clipimg-upload-label clipimg-upload-service))))
+
 (transient-define-infix clipimg-menu--layout-infix ()
   :class 'transient-switches
   :key "-y"
@@ -169,6 +190,17 @@
   (with-current-buffer (clipimg-menu--origin-buffer)
     (clipimg-menu--call #'clipimg-ocr-insert)))
 
+(defun clipimg-menu-upload ()
+  "Upload the clipboard image and put the URL on the kill ring."
+  (interactive)
+  (clipimg-upload-to-kill-ring clipimg-menu--clip (clipimg-menu--service)))
+
+(defun clipimg-menu-upload-insert ()
+  "Upload the clipboard image and insert the URL at point."
+  (interactive)
+  (with-current-buffer (clipimg-menu--origin-buffer)
+    (clipimg-upload-insert clipimg-menu--clip (clipimg-menu--service))))
+
 (defun clipimg-menu-read-clipboard ()
   "Read the clipboard again, replacing the image the menu acts on."
   (interactive)
@@ -197,7 +229,12 @@ that snapshot even after the clipboard moves on."
     ("i" "insert at point" clipimg-menu-ocr-insert
      :inapt-if (lambda ()
                  (or (clipimg-menu--ocr-inapt-p)
-                     (clipimg-menu--origin-read-only-p))))]]
+                     (clipimg-menu--origin-read-only-p))))]
+   ["Upload"
+    (clipimg-menu--service-infix)
+    ("u" "to kill ring" clipimg-menu-upload)
+    ("U" "insert URL at point" clipimg-menu-upload-insert
+     :inapt-if clipimg-menu--origin-read-only-p)]]
   [:class transient-row
    ("r" "re-read clipboard" clipimg-menu-read-clipboard :transient t)]
   ;; The Return key arrives as this event while an active map binds it,

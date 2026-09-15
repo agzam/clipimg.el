@@ -1,5 +1,14 @@
 #+title: Changelog
 
+* 0.2.0 (2026-09-15)
+- An Upload column: =u= sends the image to an image host and puts the URL on the kill ring, =U= inserts it at point, =-s= picks the host.
+- Six hosts ship in =clipimg-upload-services=: Litterbox, Catbox, 0x0.st, Uguu, tmpfiles.org and ImgBB. A host is a table entry, not code. Litterbox is the default: no account, and the image is gone in three days.
+- No Imgur entry. Imgur stopped issuing API credentials, so a new user cannot get a key at any price.
+- Every upload asks first, naming the host, the size and how long the image stays there.
+- Credentials come from auth-source, and only when you upload, so the menu never asks for a passphrase.
+- Requests go out over =url.el=. Nothing new to install, and the dependency list is still Emacs and transient.
+- =clipimg-upload= does the same without the menu.
+
 * 0.1.0 (2026-09-14)
 - =clipimg= reads the image on the clipboard and opens a transient on it.
 - Text recognition with the macOS Vision framework or tesseract, chosen by =clipimg-ocr-backend=, with language and layout settings.

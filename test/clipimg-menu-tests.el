@@ -29,10 +29,17 @@
   (it "falls back to the settings when the arguments name nothing"
     (spy-on 'clipimg-menu--args :and-return-value nil)
     (spy-on 'clipimg-ocr-backend :and-return-value 'vision)
-    (let ((clipimg-ocr-layout 'auto))
+    (let ((clipimg-ocr-layout 'auto)
+          (clipimg-upload-service 'litterbox))
       (expect (clipimg-menu--backend) :to-be 'vision)
       (expect (clipimg-menu--language) :to-be nil)
-      (expect (clipimg-menu--layout) :to-be 'auto))))
+      (expect (clipimg-menu--layout) :to-be 'auto)
+      (expect (clipimg-menu--service) :to-be 'litterbox)))
+
+  (it "takes the upload service the arguments name"
+    (spy-on 'clipimg-menu--args :and-return-value '("--service=0x0"))
+    (let ((clipimg-upload-service 'litterbox))
+      (expect (clipimg-menu--service) :to-be '0x0))))
 
 (describe "the header"
   (before-each
@@ -59,7 +66,14 @@
   (it "lists nothing when the engine can run"
     (let ((clipimg-ocr-backend 'here)
           (clipimg-ocr-backends '((here :available-p always :recognize ignore))))
-      (expect (clipimg-menu--problems) :to-be nil))))
+      (expect (clipimg-menu--problems) :to-be nil)))
+
+  (it "lists an upload service that is not in the table"
+    (let ((clipimg-ocr-backend 'here)
+          (clipimg-ocr-backends '((here :available-p always :recognize ignore)))
+          (clipimg-upload-service 'nowhere))
+      (expect (clipimg-menu--problems) :to-equal
+              '("nowhere is not a known upload service")))))
 
 (describe "clipimg-menu--origin-read-only-p"
   (it "sees a read only buffer"
@@ -100,5 +114,27 @@
       (spy-on 'clipimg-clipboard-clip-or-error :and-return-value fresh)
       (clipimg-menu-read-clipboard)
       (expect clipimg-menu--clip :to-be fresh))))
+
+(describe "the upload actions"
+  (before-each
+    (spy-on 'clipimg-menu--args :and-return-value '("--service=0x0"))
+    (setq clipimg-menu--clip (clipimg-clip-create :data "x" :type 'png)))
+
+  (after-each
+    (setq clipimg-menu--clip nil))
+
+  (it "passes the clip and the service on"
+    (spy-on 'clipimg-upload-to-kill-ring)
+    (clipimg-menu-upload)
+    (expect 'clipimg-upload-to-kill-ring :to-have-been-called-with
+            clipimg-menu--clip '0x0))
+
+  (it "inserts into the buffer the menu was opened from"
+    (with-temp-buffer
+      (let ((origin (current-buffer)))
+        (spy-on 'clipimg-menu--origin-buffer :and-return-value origin)
+        (spy-on 'clipimg-upload-url :and-return-value "https://0x0.st/a.png")
+        (clipimg-menu-upload-insert)
+        (expect (buffer-string) :to-equal "https://0x0.st/a.png")))))
 
 ;;; clipimg-menu-tests.el ends here
