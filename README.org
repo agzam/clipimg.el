@@ -1,0 +1,77 @@
+#+title: clipimg.el
+
+Take the image off the clipboard and do something with it, from a transient menu.
+
+Today the menu recognizes text. Upload, save and attach columns come next.
+
+* Requirements
+
+- Emacs 29.1 and transient.
+- macOS: nothing else. Text recognition goes through the Vision framework, which knows thirty languages out of the box.
+- Elsewhere: [[https://github.com/tesseract-ocr/tesseract][tesseract]], plus the language data files you need.
+- A terminal frame owns no selection, so there Emacs reads the clipboard through =wl-paste=, =xclip= or =osascript= instead.
+
+* Installation
+
+#+begin_src elisp
+(use-package clipimg
+  :vc (:url "https://github.com/agzam/clipimg.el")
+  :bind ("C-c i" . clipimg))
+#+end_src
+
+* Usage
+
+=M-x clipimg= reads the image on the clipboard and opens the menu on it. The image is read once, so nothing breaks when the clipboard moves on; =r= takes a fresh snapshot.
+
+| key   | what it does                                  |
+|-------+-----------------------------------------------|
+| =-b=  | engine to recognize with                      |
+| =-l=  | language the engine should read               |
+| =-y=  | layout: =block=, =sparse= or =auto=           |
+| =RET= | show the text in a buffer                     |
+| =w=   | put the text on the kill ring                 |
+| =i=   | insert the text at point in the buffer you came from |
+| =r=   | read the clipboard again                      |
+
+=w= leaves the system clipboard alone, so the image survives and you can read it again with another layout.
+
+The text buffer shows the image above the text on a graphical frame, and the summary line instead on a terminal frame. =g= recognizes again, =w= copies the text.
+
+=M-x clipimg-ocr= skips the menu and shows the text straight away.
+
+** Layout
+
+=block= joins boxes that sit side by side into one line, which is what you want for a paragraph or a table row. =sparse= gives every box a line of its own, which suits scattered labels. =auto= leaves it to the engine.
+
+* Configuration
+
+| variable                    | what it decides                                |
+|-----------------------------+------------------------------------------------|
+| =clipimg-ocr-backend=       | engine, or =auto= for the first available one  |
+| =clipimg-ocr-language=      | language the engine reads, nil for its default |
+| =clipimg-ocr-layout=        | starting layout                                |
+| =clipimg-ocr-backends=      | the engines themselves                         |
+| =clipimg-clipboard-types=   | clipboard media types, most wanted first       |
+| =clipimg-preview-max-width= | width the preview image is shrunk to           |
+| =clipimg-ocr-buffer-name=   | name of the text buffer                        |
+
+** Another engine
+
+An engine is an entry in =clipimg-ocr-backends=: a label, a predicate saying whether this machine can run it, a function returning its languages, and a function taking a file, a language and a layout symbol.
+
+#+begin_src elisp
+(add-to-list 'clipimg-ocr-backends
+             '(my-engine
+               :label "my engine"
+               :available-p (lambda () (and (executable-find "my-ocr") t))
+               :languages (lambda () '("eng"))
+               :recognize (lambda (file _language _layout)
+                            (shell-command-to-string
+                             (format "my-ocr %s" (shell-quote-argument file))))))
+#+end_src
+
+Entries earlier in the list win when =clipimg-ocr-backend= is =auto=.
+
+* License
+
+GPL-3.0-or-later. See [[file:LICENSE][LICENSE]].

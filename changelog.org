@@ -1,0 +1,7 @@
+#+title: Changelog
+
+* 0.1.0 (2026-09-14)
+- =clipimg= reads the image on the clipboard and opens a transient on it.
+- Text recognition with the macOS Vision framework or tesseract, chosen by =clipimg-ocr-backend=, with language and layout settings.
+- Text goes to a buffer, to the kill ring without touching the clipboard, or into the buffer the menu was opened from.
+- =clipimg-ocr= does the same without the menu.

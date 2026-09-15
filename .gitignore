@@ -1,0 +1,8 @@
+*.elc
+*-autoloads.el
+.elpa/
+.sandbox/
+*~
+#*#
+.#*
+.claude/
