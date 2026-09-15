@@ -23,11 +23,11 @@ Today the menu recognizes text, uploads and saves. An attach column comes next.
 
 =M-x clipimg= reads the image on the clipboard and opens the menu on it. The image is read once, so nothing breaks when the clipboard moves on; =r= takes a fresh snapshot.
 
-| key   | what it does                                         |
-|-------+------------------------------------------------------|
+| key | what it does                                         |
+|-----+------------------------------------------------------|
 | =-b=  | engine to recognize with                             |
 | =-l=  | language the engine should read                      |
-| =-y=  | layout: =block=, =sparse= or =auto=                  |
+| =-y=  | layout: =block=, =sparse= or =auto=                        |
 | =RET= | show the text in a buffer                            |
 | =w=   | put the text on the kill ring                        |
 | =i=   | insert the text at point in the buffer you came from |
@@ -55,8 +55,8 @@ Unlike =w=, =u= puts the URL on the system clipboard as well, replacing the imag
 
 An upload goes out as PNG, converted first when the clipboard handed over something else - =clipimg-upload-format= decides, and nil sends the clip as it is. The size in the question is the size that goes over the wire, so a TIFF from a macOS clipboard is announced at its PNG size, not its own. Without a converter on PATH the clip goes as it is.
 
-| service     | how long it stays         | what it needs              |
-|-------------+---------------------------+----------------------------|
+| service   | how long it stays         | what it needs              |
+|-----------+---------------------------+----------------------------|
 | =litterbox= | 72 hours                  | nothing                    |
 | =catbox=    | kept, your address logged | nothing, userhash optional |
 | =uguu=      | 3 hours                   | nothing                    |
@@ -113,9 +113,9 @@ Emacs has =image-convert= for this and clipimg does not use it. It reaches for f
 
 * Configuration
 
-| variable                      | what it decides                                 |
-|-------------------------------+-------------------------------------------------|
-| =clipimg-ocr-backend=         | engine, or =auto= for the first available one   |
+| variable                    | what it decides                                 |
+|-----------------------------+-------------------------------------------------|
+| =clipimg-ocr-backend=         | engine, or =auto= for the first available one     |
 | =clipimg-ocr-language=        | language the engine reads, nil for its default  |
 | =clipimg-ocr-layout=          | starting layout                                 |
 | =clipimg-ocr-backends=        | the engines themselves                          |
