@@ -25,6 +25,10 @@
 ;; looked for at the moment of upload, so opening the menu never asks for
 ;; a passphrase.
 ;;
+;; Every entry that ships has had this package's own bytes put on the real
+;; host and read back byte for byte.  `make check-hosts' does that again,
+;; and nothing is added to the table without it.
+;;
 ;; An upload is public and most of these hosts cannot take it back, so
 ;; every command here asks first, naming the host and the size.
 
@@ -57,31 +61,12 @@
      :credential (:host "catbox.moe" :field "userhash" :optional t)
      :answer text
      :retention "kept, with your address in their log")
-    (0x0
-     :label "0x0.st"
-     :url "https://0x0.st"
-     :file-field "file"
-     :answer text
-     :retention "30 days to a year, the larger the shorter")
     (uguu
      :label "Uguu"
      :url "https://uguu.se/upload?output=text"
      :file-field "files[]"
      :answer text
-     :retention "3 hours")
-    (tmpfiles
-     :label "tmpfiles.org"
-     :url "https://tmpfiles.org/api/v1/upload"
-     :file-field "file"
-     :answer (data url)
-     :retention "1 hour")
-    (imgbb
-     :label "ImgBB"
-     :url "https://api.imgbb.com/1/upload"
-     :file-field "image"
-     :credential (:host "api.imgbb.com" :field "key")
-     :answer (data url)
-     :retention "kept until you delete it"))
+     :retention "3 hours"))
   "Image hosts an upload can go to.
 Each entry maps a symbol to a plist.  `:label' names the host for the
 menu and `:url' is where the POST goes.  `:file-field' names the form
@@ -112,7 +97,7 @@ is the least an upload can commit you to."
 (defconst clipimg-upload--user-agent
   "clipimg.el (https://github.com/agzam/clipimg.el)"
   "What clipimg calls itself when uploading.
-0x0.st turns away the generic agent strings a library sends.")
+Some hosts turn away the generic agent string a library sends.")
 
 
 ;;;; Services

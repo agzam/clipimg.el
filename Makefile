@@ -20,12 +20,13 @@ EMACS_SANDBOX = $(EMACS) -Q --init-directory "$(SANDBOX_DIR)" \
 	--eval "(require 'package)" \
 	--eval "(package-initialize)"
 
-.PHONY: help deps test check-compile check-autoloads lint sandbox clean
+.PHONY: help deps test check-hosts check-compile check-autoloads lint sandbox clean
 
 help:
 	@echo "Available commands:"
 	@echo "  make deps             Install dependencies into .elpa"
 	@echo "  make test             Run the test suites"
+	@echo "  make check-hosts      Upload to every host for real and read it back"
 	@echo "  make check-compile    Byte-compile with warnings as errors"
 	@echo "  make check-autoloads  Generate and load autoloads"
 	@echo "  make lint             Run package-lint and checkdoc"
@@ -50,6 +51,12 @@ test: $(ELPA_DIR)
 	--eval "(setq buttercup-stack-frame-style 'omit)" \
 	$(foreach file,$(TEST_FILES),-l $(file)) \
 	--funcall buttercup-run
+
+# Real uploads to real hosts, so it stays out of test and out of CI. Run it by
+# hand before adding an entry to the table or trusting one that is already there.
+check-hosts: $(ELPA_DIR)
+	@echo "Uploading to every shipped host..."
+	$(EMACS_BATCH) --directory . -l scripts/check-hosts.el --funcall check-hosts
 
 # batch-byte-compile exits 1 when any file fails; byte-compile-file only
 # returns nil, which a plain --eval would drop.

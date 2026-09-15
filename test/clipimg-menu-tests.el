@@ -37,9 +37,9 @@
       (expect (clipimg-menu--service) :to-be 'litterbox)))
 
   (it "takes the upload service the arguments name"
-    (spy-on 'clipimg-menu--args :and-return-value '("--service=0x0"))
+    (spy-on 'clipimg-menu--args :and-return-value '("--service=catbox"))
     (let ((clipimg-upload-service 'litterbox))
-      (expect (clipimg-menu--service) :to-be '0x0))))
+      (expect (clipimg-menu--service) :to-be 'catbox))))
 
 (describe "the header"
   (before-each
@@ -117,7 +117,7 @@
 
 (describe "the upload actions"
   (before-each
-    (spy-on 'clipimg-menu--args :and-return-value '("--service=0x0"))
+    (spy-on 'clipimg-menu--args :and-return-value '("--service=catbox"))
     (setq clipimg-menu--clip (clipimg-clip-create :data "x" :type 'png)))
 
   (after-each
@@ -127,14 +127,14 @@
     (spy-on 'clipimg-upload-to-kill-ring)
     (clipimg-menu-upload)
     (expect 'clipimg-upload-to-kill-ring :to-have-been-called-with
-            clipimg-menu--clip '0x0))
+            clipimg-menu--clip 'catbox))
 
   (it "inserts into the buffer the menu was opened from"
     (with-temp-buffer
       (let ((origin (current-buffer)))
         (spy-on 'clipimg-menu--origin-buffer :and-return-value origin)
-        (spy-on 'clipimg-upload-url :and-return-value "https://0x0.st/a.png")
+        (spy-on 'clipimg-upload-url :and-return-value "https://files.catbox.moe/a.png")
         (clipimg-menu-upload-insert)
-        (expect (buffer-string) :to-equal "https://0x0.st/a.png")))))
+        (expect (buffer-string) :to-equal "https://files.catbox.moe/a.png")))))
 
 ;;; clipimg-menu-tests.el ends here

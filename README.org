@@ -52,29 +52,29 @@ The text buffer shows the image above the text on a graphical frame, and the sum
 
 Unlike =w=, =u= puts the URL on the system clipboard as well, replacing the image there. Pasting the link somewhere else is the next thing you were going to do anyway, and the menu is unharmed either way: it works on the snapshot it took when it opened.
 
-| service     | how long it stays          | what it needs              |
-|-------------+----------------------------+----------------------------|
-| =litterbox= | 72 hours                   | nothing                    |
-| =catbox=    | kept, your address logged  | nothing, userhash optional |
-| =0x0=       | 30 days to a year, by size | nothing                    |
-| =uguu=      | 3 hours                    | nothing                    |
-| =tmpfiles=  | 1 hour                     | nothing                    |
-| =imgbb=     | until you delete it        | an API key                 |
+| service     | how long it stays         | what it needs              |
+|-------------+---------------------------+----------------------------|
+| =litterbox= | 72 hours                  | nothing                    |
+| =catbox=    | kept, your address logged | nothing, userhash optional |
+| =uguu=      | 3 hours                   | nothing                    |
 
-Litterbox is the default because it needs no account and throws the image away after three days, which is the least an upload can commit you to. Five of the six need nothing configured at all.
+Litterbox is the default because it needs no account and throws the image away after three days, which is the least an upload can commit you to. None of the three needs anything configured.
 
-There is no Imgur entry. Imgur stopped issuing API credentials, so nobody can obtain a key for it any more, and the endpoint only answers to applications registered before they closed the door. If you hold one of those keys, add the entry yourself as shown under [[*Another service][Another service]], posting to =https://api.imgur.com/3/image= with the file in an =image= field, =:credential (:host "api.imgur.com" :header "Authorization" :format "Client-ID %s")= and =:answer (data link)=.
+Every entry in that table has had this package's own bytes put on the real host and read back byte for byte. =make check-hosts= does it again, and nothing joins the table without passing it. A host that has quietly died, or that answers with a landing page instead of the image, fails there and nowhere else - a suite that stops at the transport cannot tell.
+
+Three hosts were considered and are deliberately absent. 0x0.st disabled uploads. tmpfiles.org uploads fine but answers with a viewer page whose direct image link carries a signed token that only appears on that page, so there is no image URL to hand back. Imgur stopped issuing API credentials altogether, so no new user can configure it, and the endpoint now answers only to applications registered before they closed the door.
+
+Adding any of them back is a table entry, shown under [[*Another service][Another service]]. For Imgur, if you hold one of those old keys: post to =https://api.imgur.com/3/image= with the file in an =image= field, =:credential (:host "api.imgur.com" :header "Authorization" :format "Client-ID %s")= and =:answer (data link)=.
 
 ** Credentials
 
-A service that needs a credential reads it from auth-source, and only when you upload, so opening the menu never asks for your passphrase. Lines in =~/.authinfo.gpg=:
+A service that needs a credential reads it from auth-source, and only when you upload, so opening the menu never asks for your passphrase. Of the hosts that ship, only Catbox takes one, and it is optional:
 
 #+begin_example
-machine api.imgbb.com password YOUR-API-KEY
 machine catbox.moe password YOUR-USERHASH
 #+end_example
 
-An ImgBB key is free from [[https://api.imgbb.com/][their API page]]. A Catbox userhash is optional and only ties an upload to your account so you can delete it later; Catbox keeps the image either way.
+A Catbox userhash ties an upload to your account so you can delete it later. Catbox keeps the image either way.
 
 An entry can also ship a key of its own in =:default=, which is what a package does when it registers once on behalf of everyone. A line in your authinfo always wins over it, so your own account never rides on a shared key.
 

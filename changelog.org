@@ -2,8 +2,9 @@
 
 * 0.2.0 (2026-09-15)
 - An Upload column: =u= sends the image to an image host and puts the URL on the kill ring, =U= inserts it at point, =-s= picks the host.
-- Six hosts ship in =clipimg-upload-services=: Litterbox, Catbox, 0x0.st, Uguu, tmpfiles.org and ImgBB. A host is a table entry, not code. Litterbox is the default: no account, and the image is gone in three days.
-- No Imgur entry. Imgur stopped issuing API credentials, so a new user cannot get a key at any price.
+- Three hosts ship in =clipimg-upload-services=: Litterbox, Catbox and Uguu. A host is a table entry, not code. Litterbox is the default: no account, and the image is gone in three days.
+- =make check-hosts= uploads to every shipped host for real and compares what the returned URL serves with what went up. No entry ships without passing it.
+- 0x0.st, tmpfiles.org and Imgur were all considered and left out: 0x0.st disabled uploads, tmpfiles.org answers with a viewer page rather than an image URL, and Imgur stopped issuing API credentials.
 - Every upload asks first, naming the host, the size and how long the image stays there.
 - Credentials come from auth-source, and only when you upload, so the menu never asks for a passphrase.
 - Requests go out over =url.el=. Nothing new to install, and the dependency list is still Emacs and transient.

@@ -24,9 +24,18 @@
      :credential (:host "example.com" :header "Authorization"
                   :format "Token %s" :default "SHIPPED")
      :answer (result url)
-     :retention "a week"))
-  "A host of its own, so no spec rests on what a shipped entry happens to say.
-No host that ships carries its secret in a header, and this one does.")
+     :retention "a week")
+    (keyed
+     :label "Keyed"
+     :url "https://example.net/upload"
+     :file-field "file"
+     :credential (:host "example.net" :field "key")
+     :answer (data url)
+     :retention "a day"))
+  "Hosts of their own, so no spec rests on what a shipped entry happens to say.
+Every host that ships answers with a bare URL and none of them needs a
+secret outright, so a header credential, a form field credential and a
+JSON answer have nowhere else to be exercised.")
 
 (defun clipimg-upload-tests--clip ()
   "Return a clip standing in for one taken off the clipboard."
@@ -46,9 +55,11 @@ No host that ships carries its secret in a header, and this one does.")
     buffer))
 
 (describe "the service table"
-  (it "knows every service it ships"
-    (expect (clipimg-upload-service-names)
-            :to-equal '(litterbox catbox 0x0 uguu tmpfiles imgbb)))
+  (it "ships only hosts whose upload was read back from the real server"
+    ;; `make check-hosts' is what keeps this honest.  0x0.st disabled
+    ;; uploads and tmpfiles answers with a landing page rather than the
+    ;; image, so neither belongs in the table.
+    (expect (clipimg-upload-service-names) :to-equal '(litterbox catbox uguu)))
 
   (it "uploads to a host that needs no account by default"
     (expect clipimg-upload-service :to-be 'litterbox)
@@ -79,7 +90,7 @@ No host that ships carries its secret in a header, and this one does.")
 
   (it "leaves a missing credential to upload time, so no menu unlocks a keyring"
     (spy-on 'auth-source-search :and-return-value nil)
-    (expect (clipimg-upload-problem 'imgbb) :to-be nil)
+    (expect (clipimg-upload-problem 'catbox) :to-be nil)
     (expect 'auth-source-search :not :to-have-been-called)))
 
 (describe "the multipart body"
@@ -144,18 +155,21 @@ No host that ships carries its secret in a header, and this one does.")
 (describe "the secret a service needs"
   (it "finds it in auth-source under the host of the entry"
     (spy-on 'auth-source-search :and-return-value '((:secret "key123")))
-    (expect (clipimg-upload--secret 'imgbb) :to-equal "key123")
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload--secret 'keyed) :to-equal "key123"))
     (expect (spy-calls-args-for 'auth-source-search 0)
-            :to-equal '(:host "api.imgbb.com" :max 1)))
+            :to-equal '(:host "example.net" :max 1)))
 
   (it "calls the secret when auth-source hands over a function"
     (spy-on 'auth-source-search
             :and-return-value (list (list :secret (lambda () "hidden"))))
-    (expect (clipimg-upload--secret 'imgbb) :to-equal "hidden"))
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload--secret 'keyed) :to-equal "hidden")))
 
   (it "signals when a service that needs one has none"
     (spy-on 'auth-source-search :and-return-value nil)
-    (expect (clipimg-upload--secret 'imgbb) :to-throw 'user-error))
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload--secret 'keyed) :to-throw 'user-error)))
 
   (it "does without one the service marks optional"
     (spy-on 'auth-source-search :and-return-value nil)
@@ -186,10 +200,11 @@ No host that ships carries its secret in a header, and this one does.")
               :to-equal '(("kind" . "screenshot")))))
 
   (it "goes into the form field the entry names"
-    (expect (clipimg-upload--fields 'imgbb "key123")
-            :to-equal '(("key" . "key123")))
-    (expect (clipimg-upload--headers 'imgbb "BOUND" "key123")
-            :to-equal '(("Content-Type" . "multipart/form-data; boundary=BOUND"))))
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload--fields 'keyed "key123")
+              :to-equal '(("key" . "key123")))
+      (expect (clipimg-upload--headers 'keyed "BOUND" "key123")
+              :to-equal '(("Content-Type" . "multipart/form-data; boundary=BOUND")))))
 
   (it "joins the constant fields of the service"
     (expect (clipimg-upload--fields 'catbox "hash")
@@ -210,15 +225,18 @@ No host that ships carries its secret in a header, and this one does.")
             :to-equal "https://litter.catbox.moe/a.png"))
 
   (it "digs a path out of JSON"
-    (expect (clipimg-upload--answer
-             'tmpfiles "{\"status\":\"success\",\"data\":{\"url\":\"https://tmpfiles.org/1/a.png\"}}")
-            :to-equal "https://tmpfiles.org/1/a.png"))
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload--answer
+               'keyed "{\"status\":\"ok\",\"data\":{\"url\":\"https://example.net/a.png\"}}")
+              :to-equal "https://example.net/a.png")))
 
   (it "signals when the path is not there"
-    (expect (clipimg-upload--answer 'tmpfiles "{\"data\":{}}") :to-throw 'user-error))
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload--answer 'keyed "{\"data\":{}}") :to-throw 'user-error)))
 
   (it "signals when the answer is not JSON at all"
-    (expect (clipimg-upload--answer 'tmpfiles "<html>gone</html>") :to-throw 'user-error))
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload--answer 'keyed "<html>gone</html>") :to-throw 'user-error)))
 
   (it "calls a function an entry gives instead"
     (let ((clipimg-upload-services
@@ -273,9 +291,10 @@ No host that ships carries its secret in a header, and this one does.")
   (it "carries the secret of a service that needs one"
     (spy-on 'auth-source-search :and-return-value '((:secret "key123")))
     (spy-on 'clipimg-upload--post
-            :and-return-value "{\"data\":{\"url\":\"https://i.ibb.co/a.png\"}}")
-    (expect (clipimg-upload-send (clipimg-upload-tests--clip) 'imgbb)
-            :to-equal "https://i.ibb.co/a.png")
+            :and-return-value "{\"data\":{\"url\":\"https://example.net/a.png\"}}")
+    (let ((clipimg-upload-services clipimg-upload-tests--services))
+      (expect (clipimg-upload-send (clipimg-upload-tests--clip) 'keyed)
+              :to-equal "https://example.net/a.png"))
     (expect (string-search "key123" (nth 2 (spy-calls-args-for 'clipimg-upload--post 0)))
             :not :to-be nil))
 
